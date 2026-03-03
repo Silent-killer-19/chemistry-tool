@@ -1,31 +1,199 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Salt Hydrolysis Calculator</title>
+<title>Extreme Advanced Salt Hydrolysis Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+--bg1:#0f2027;
+--bg2:#203a43;
+--bg3:#2c5364;
+--card:rgba(255,255,255,0.08);
+--text:#ffffff;
+--accent:#00ffd5;
+}
+body{
+margin:0;
+font-family:Segoe UI,Roboto;
+background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));
+color:var(--text);
+}
+.wrapper{
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:20px;
+}
+.card{
+width:100%;
+max-width:650px;
+background:var(--card);
+padding:20px;
+border-radius:16px;
+box-shadow:0 20px 60px rgba(0,0,0,0.6);
+backdrop-filter:blur(10px);
+}
+h2{text-align:center;margin-bottom:15px;}
+input,select{
+width:100%;
+padding:10px;
+margin-bottom:10px;
+border-radius:8px;
+border:1px solid rgba(255,255,255,0.1);
+background:transparent;
+color:white;
+}
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:10px;
+background:linear-gradient(180deg,#00ffd5,#00a8ff);
+font-weight:bold;
+cursor:pointer;
+}
+.result{
+margin-top:15px;
+font-size:22px;
+color:var(--accent);
+text-align:center;
+opacity:0;
+transform:translateY(10px);
+transition:all .5s ease;
+}
+.result.show{opacity:1;transform:translateY(0);}
+.steps{
+margin-top:15px;
+font-size:13px;
+white-space:pre-wrap;
+background:rgba(0,0,0,0.3);
+padding:10px;
+border-radius:10px;
+}
+canvas{margin-top:15px;height:160px !important;}
+</style>
 </head>
+
 <body>
-<h2>Salt Hydrolysis (Weak Acid Salt)</h2>
+<div class="wrapper">
+<div class="card">
+<h2>Extreme Advanced Salt Hydrolysis Calculator</h2>
 
-<input type="number" id="Ka" placeholder="Ka of weak acid">
-<input type="number" id="C" placeholder="Salt concentration">
+<select id="saltType">
+<option value="ss">Strong Acid + Strong Base</option>
+<option value="ws">Weak Acid + Strong Base</option>
+<option value="sw">Strong Acid + Weak Base</option>
+<option value="ww">Weak Acid + Weak Base</option>
+</select>
 
-<button onclick="hydro()">Calculate</button>
+<input type="number" id="conc" placeholder="Salt Concentration (M)">
+<input type="number" id="Ka" placeholder="Ka (if applicable)">
+<input type="number" id="Kb" placeholder="Kb (if applicable)">
+<input type="number" id="temp" placeholder="Temperature (°C, optional)">
+<button onclick="calculateSalt()">Calculate pH</button>
 
-<div id="res"></div>
+<div id="result" class="result"></div>
+<div id="steps" class="steps"></div>
+<canvas id="graph"></canvas>
+
+</div>
+</div>
 
 <script>
-function hydro(){
+let chart=null;
+
+function KwTemp(T){
+if(!T) return 1e-14;
+return 1e-14*Math.exp(0.05*(T-25));
+}
+
+function calculateSalt(){
+
+let type=document.getElementById("saltType").value;
+let C=parseFloat(document.getElementById("conc").value);
 let Ka=parseFloat(document.getElementById("Ka").value);
-let C=parseFloat(document.getElementById("C").value);
-let Kw=1e-14;
+let Kb=parseFloat(document.getElementById("Kb").value);
+let T=parseFloat(document.getElementById("temp").value);
 
-let H=Math.sqrt((Kw/Ka)*C);
-let pH=-Math.log10(H);
+if(!C){alert("Enter concentration");return;}
 
-document.getElementById("res").innerHTML=
-"pH = "+pH.toFixed(4);
+let Kw=KwTemp(T);
+let pH,steps="";
+steps+="Given C = "+C+" M\nKw = "+Kw.toExponential(3)+"\n\n";
+
+if(type==="ss"){
+pH=7;
+steps+="Strong Acid + Strong Base\nNo hydrolysis\npH = 7\n";
+}
+
+else if(type==="ws"){
+let Kh=Kw/Ka;
+let h=Math.sqrt(Kh/C);
+let OH=C*h;
+pH=14+Math.log10(OH);
+steps+="Weak Acid + Strong Base\n";
+steps+="Kh = Kw/Ka = "+Kh.toExponential(3)+"\n";
+steps+="h = √(Kh/C) = "+h.toExponential(3)+"\n";
+steps+="[OH-] = C×h = "+OH.toExponential(3)+"\n";
+steps+="pH = 14 - pOH = "+pH.toFixed(4);
+}
+
+else if(type==="sw"){
+let Kh=Kw/Kb;
+let h=Math.sqrt(Kh/C);
+let H=C*h;
+pH=-Math.log10(H);
+steps+="Strong Acid + Weak Base\n";
+steps+="Kh = Kw/Kb = "+Kh.toExponential(3)+"\n";
+steps+="h = √(Kh/C) = "+h.toExponential(3)+"\n";
+steps+="[H+] = C×h = "+H.toExponential(3)+"\n";
+steps+="pH = "+pH.toFixed(4);
+}
+
+else{
+let Kh=Kw/(Ka*Kb);
+pH=7+0.5*Math.log10(Ka/Kb);
+steps+="Weak Acid + Weak Base\n";
+steps+="pH = 7 + ½ log(Ka/Kb)\n";
+steps+="pH = "+pH.toFixed(4);
+}
+
+document.getElementById("steps").innerText=steps;
+
+let res=document.getElementById("result");
+res.innerHTML="Final pH = "+pH.toFixed(4);
+res.classList.add("show");
+
+drawGraph(pH);
+}
+
+function drawGraph(pH){
+
+let ctx=document.getElementById("graph").getContext("2d");
+if(chart){chart.destroy();}
+
+chart=new Chart(ctx,{
+type:"bar",
+data:{
+labels:["pH"],
+datasets:[{
+data:[pH],
+backgroundColor:"#00ffd5"
+}]
+},
+options:{
+indexAxis:"y",
+plugins:{legend:{display:false}},
+scales:{
+x:{min:0,max:14,ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
 }
 </script>
-
 </body>
 </html>
