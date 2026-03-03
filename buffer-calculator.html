@@ -1,30 +1,217 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Buffer Calculator | Henderson Equation</title>
+<title>Extreme Advanced Buffer Calculator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+--bg1:#0f2027;
+--bg2:#203a43;
+--bg3:#2c5364;
+--card:rgba(255,255,255,0.08);
+--text:#ffffff;
+--accent:#00ffd5;
+}
+
+body{
+margin:0;
+font-family:Segoe UI,Roboto;
+background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));
+color:var(--text);
+}
+
+.wrapper{
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:20px;
+}
+
+.card{
+width:100%;
+max-width:600px;
+background:var(--card);
+padding:20px;
+border-radius:16px;
+box-shadow:0 20px 60px rgba(0,0,0,0.6);
+backdrop-filter:blur(10px);
+}
+
+h2{
+text-align:center;
+margin-bottom:15px;
+}
+
+input,select{
+width:100%;
+padding:10px;
+margin-bottom:10px;
+border-radius:8px;
+border:1px solid rgba(255,255,255,0.1);
+background:transparent;
+color:white;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:10px;
+background:linear-gradient(180deg,#00ffd5,#00a8ff);
+font-weight:bold;
+cursor:pointer;
+margin-top:5px;
+}
+
+.result{
+margin-top:15px;
+font-size:22px;
+color:var(--accent);
+text-align:center;
+opacity:0;
+transform:translateY(10px);
+transition:all .5s ease;
+}
+
+.result.show{
+opacity:1;
+transform:translateY(0);
+}
+
+.steps{
+margin-top:15px;
+font-size:13px;
+white-space:pre-wrap;
+background:rgba(0,0,0,0.3);
+padding:10px;
+border-radius:10px;
+}
+
+canvas{
+margin-top:15px;
+height:180px !important;
+}
+</style>
 </head>
+
 <body>
-<h2>Buffer pH Calculator</h2>
+<div class="wrapper">
+<div class="card">
+<h2>Extreme Advanced Buffer Calculator</h2>
 
-<input type="number" id="Ka" placeholder="Ka value">
-<input type="number" id="ratio" placeholder="Base/Acid Ratio">
+<input type="number" id="acidConc" placeholder="Weak Acid Concentration (M)">
+<input type="number" id="baseConc" placeholder="Conjugate Base Concentration (M)">
+<input type="number" id="pKa" placeholder="pKa">
 
-<button onclick="buffer()">Calculate</button>
+<input type="number" id="addStrong" placeholder="Add Strong Acid/Base (moles)">
+<select id="type">
+<option value="acid">Add Strong Acid (H⁺)</option>
+<option value="base">Add Strong Base (OH⁻)</option>
+</select>
 
-<div id="out"></div>
+<input type="number" id="volume" placeholder="Total Volume (L)">
+<button onclick="calculateBuffer()">Calculate Buffer pH</button>
+
+<div id="result" class="result"></div>
+<div id="steps" class="steps"></div>
+<canvas id="graph"></canvas>
+
+</div>
+</div>
 
 <script>
-function buffer(){
-let Ka=parseFloat(document.getElementById("Ka").value);
-let ratio=parseFloat(document.getElementById("ratio").value);
+let chart=null;
 
-let pKa=-Math.log10(Ka);
-let pH=pKa+Math.log10(ratio);
+function calculateBuffer(){
 
-document.getElementById("out").innerHTML=
-"Using Henderson Equation:<br>pH = "+pH.toFixed(4);
+let HA=parseFloat(document.getElementById("acidConc").value);
+let A=parseFloat(document.getElementById("baseConc").value);
+let pKa=parseFloat(document.getElementById("pKa").value);
+let added=parseFloat(document.getElementById("addStrong").value)||0;
+let type=document.getElementById("type").value;
+let V=parseFloat(document.getElementById("volume").value);
+
+if(!HA||!A||!pKa||!V){
+alert("Fill required values");
+return;
+}
+
+let Ka=Math.pow(10,-pKa);
+let steps="Initial Buffer:\n";
+steps+="pH = pKa + log([A-]/[HA])\n";
+let initialPH=pKa+Math.log10(A/HA);
+steps+="Initial pH = "+initialPH.toFixed(4)+"\n\n";
+
+let molesHA=HA*V;
+let molesA=A*V;
+
+if(type==="acid"){
+molesA-=added;
+molesHA+=added;
+steps+="After Adding Strong Acid:\nA- decreases, HA increases\n";
+}else{
+molesA+=added;
+molesHA-=added;
+steps+="After Adding Strong Base:\nA- increases, HA decreases\n";
+}
+
+if(molesA<=0||molesHA<=0){
+steps+="Buffer destroyed (excess strong acid/base)\n";
+}
+
+let newPH=pKa+Math.log10(molesA/molesHA);
+steps+="\nNew pH = pKa + log(new A-/new HA)\n";
+steps+="New pH = "+newPH.toFixed(4);
+
+let beta=2.303*((Ka*molesHA/V)/(Math.pow((Ka+(molesHA/V)),2)));
+steps+="\n\nBuffer Capacity (β) ≈ "+beta.toExponential(3);
+
+document.getElementById("steps").innerText=steps;
+
+let res=document.getElementById("result");
+res.innerHTML="Final pH = "+newPH.toFixed(4);
+res.classList.add("show");
+
+drawGraph(pKa,newPH);
+}
+
+function drawGraph(pKa,finalPH){
+
+let ctx=document.getElementById("graph").getContext("2d");
+if(chart){chart.destroy();}
+
+chart=new Chart(ctx,{
+type:"line",
+data:{
+labels:["0","0.01","0.02","0.03","0.04","0.05"],
+datasets:[{
+label:"pH Change Trend",
+data:[
+pKa-0.3,
+pKa-0.1,
+pKa,
+pKa+0.1,
+pKa+0.2,
+finalPH
+],
+borderColor:"#00ffd5",
+tension:0.3
+}]
+},
+options:{
+plugins:{
+legend:{labels:{color:"white"}}
+},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"},min:0,max:14}
+}
+}
+});
 }
 </script>
-
 </body>
 </html>
