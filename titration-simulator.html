@@ -1,1 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Pro Titration Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body{
+margin:0;
+font-family:Segoe UI, sans-serif;
+background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+color:white;
+padding:20px;
+}
+
+.container{
+max-width:1000px;
+margin:auto;
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(15px);
+padding:25px;
+border-radius:25px;
+box-shadow:0 0 40px rgba(0,0,0,0.5);
+}
+
+h2{text-align:center;margin-bottom:20px;}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:15px;
+}
+
+input,select{
+width:100%;
+padding:10px;
+border-radius:10px;
+border:none;
+font-size:14px;
+}
+
+.slider{
+width:100%;
+}
+
+.resultBox{
+margin-top:20px;
+padding:15px;
+background:rgba(0,0,0,0.4);
+border-radius:15px;
+transition:0.4s;
+}
+
+canvas{
+background:white;
+border-radius:15px;
+margin-top:20px;
+}
+
+.burette{
+width:60px;
+height:300px;
+border:3px solid white;
+margin:auto;
+position:relative;
+border-radius:10px;
+}
+
+.liquid{
+position:absolute;
+bottom:0;
+width:100%;
+background:#00c6ff;
+transition:0.4s;
+}
+
+.drop{
+width:10px;
+height:10px;
+background:#00c6ff;
+border-radius:50%;
+position:absolute;
+left:25px;
+animation:drop 1s infinite;
+}
+
+@keyframes drop{
+0%{top:290px;opacity:1;}
+100%{top:340px;opacity:0;}
+}
+
+@media(max-width:700px){
+.grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>🧪 Ultimate Pro Titration Lab</h2>
+
+<div class="grid">
+<div>
+<label>Titration Type</label>
+<select id="type">
+<option value="sa_sb">Strong Acid vs Strong Base</option>
+<option value="wa_sb">Weak Acid vs Strong Base</option>
+<option value="wb_sa">Weak Base vs Strong Acid</option>
+</select>
+
+<label>Analyte Conc (M)</label>
+<input type="number" id="Ca" value="0.1">
+
+<label>Analyte Volume (mL)</label>
+<input type="number" id="Va" value="50">
+
+<label>Titrant Conc (M)</label>
+<input type="number" id="Cb" value="0.1">
+
+<label>Ka or Kb</label>
+<input type="number" id="K" placeholder="Only for weak">
+
+<label>Add Volume (mL)</label>
+<input type="range" min="0" max="100" step="0.5" value="0"
+id="volumeSlider" class="slider" oninput="updateTitration()">
+<span id="volDisplay">0 mL</span>
+
+</div>
+
+<div style="text-align:center">
+<div class="burette">
+<div class="liquid" id="liquid" style="height:100%"></div>
+<div class="drop"></div>
+</div>
+</div>
+</div>
+
+<div class="resultBox" id="result"></div>
+
+<canvas id="graph" width="900" height="400"></canvas>
+
+</div>
+
+<script>
+
+function updateTitration(){
+
+let type=document.getElementById("type").value;
+let Ca=parseFloat(document.getElementById("Ca").value);
+let Va=parseFloat(document.getElementById("Va").value)/1000;
+let Cb=parseFloat(document.getElementById("Cb").value);
+let K=parseFloat(document.getElementById("K").value);
+let Vb=parseFloat(document.getElementById("volumeSlider").value)/1000;
+
+document.getElementById("volDisplay").innerText=(Vb*1000).toFixed(1)+" mL";
+
+let molesA=Ca*Va;
+let molesB=Cb*Vb;
+let totalVol=Va+Vb;
+let Veq=molesA/Cb;
+
+let pH, region;
+
+if(type=="sa_sb"){
+if(Vb<Veq){
+let H=(molesA-molesB)/totalVol;
+pH=-Math.log10(H);
+region="Before Equivalence (Acidic)";
+}
+else if(Vb==Veq){
+pH=7;
+region="Equivalence Point";
+}
+else{
+let OH=(molesB-molesA)/totalVol;
+pH=14+Math.log10(OH);
+region="After Equivalence (Basic)";
+}
+}
+
+if(type=="wa_sb"){
+if(Vb<Veq){
+let HA=molesA-molesB;
+let A=molesB;
+pH=-Math.log10(K)+Math.log10(A/HA);
+region="Buffer Region";
+}
+else{
+let OH=(molesB-molesA)/totalVol;
+pH=14+Math.log10(OH);
+region="After Equivalence";
+}
+}
+
+if(type=="wb_sa"){
+if(Vb<Veq){
+let B=molesA-molesB;
+let BH=molesB;
+pH=14-(-Math.log10(K)+Math.log10(BH/B));
+region="Buffer Region";
+}
+else{
+let H=(molesB-molesA)/totalVol;
+pH=-Math.log10(H);
+region="After Equivalence";
+}
+}
+
+pH=Math.max(0,Math.min(14,pH));
+
+document.getElementById("result").innerHTML=
+"<b>pH:</b> "+pH.toFixed(3)+
+"<br><b>Region:</b> "+region+
+"<br><b>Equivalence Volume:</b> "+(Veq*1000).toFixed(2)+" mL"+
+"<br><b>Half Equivalence:</b> "+(Veq*500).toFixed(2)+" mL"+
+"<br><b>Indicator Suggestion:</b> "+
+(type=="sa_sb"?"Any":
+(type=="wa_sb"?"Phenolphthalein":"Methyl Orange"));
+
+document.getElementById("result").style.transform="scale(1.05)";
+setTimeout(()=>{document.getElementById("result").style.transform="scale(1)";},200);
+
+let liquidHeight=100-(Vb/(Veq*2))*100;
+document.getElementById("liquid").style.height=liquidHeight+"%";
+
+drawGraph(type,Ca,Va,Cb,K);
+}
+
+function drawGraph(type,Ca,Va,Cb,K){
+
+let canvas=document.getElementById("graph");
+let ctx=canvas.getContext("2d");
+ctx.clearRect(0,0,900,400);
+
+let molesA=Ca*Va;
+let Veq=molesA/Cb;
+
+ctx.beginPath();
+ctx.strokeStyle="blue";
+ctx.lineWidth=2;
+
+for(let V=0;V<=Veq*2;V+=Veq/60){
+
+let totalVol=Va+V;
+let pH;
+
+if(type=="sa_sb"){
+if(V<Veq){
+let H=(molesA-Cb*V)/totalVol;
+pH=-Math.log10(H);
+}else if(V==Veq){
+pH=7;
+}else{
+let OH=(Cb*V-molesA)/totalVol;
+pH=14+Math.log10(OH);
+}
+}
+
+if(type=="wa_sb"){
+if(V<Veq){
+let HA=molesA-Cb*V;
+let A=Cb*V;
+pH=-Math.log10(K)+Math.log10(A/HA);
+}else{
+let OH=(Cb*V-molesA)/totalVol;
+pH=14+Math.log10(OH);
+}
+}
+
+if(type=="wb_sa"){
+if(V<Veq){
+let B=molesA-Cb*V;
+let BH=Cb*V;
+pH=14-(-Math.log10(K)+Math.log10(BH/B));
+}else{
+let H=(Cb*V-molesA)/totalVol;
+pH=-Math.log10(H);
+}
+}
+
+let x=(V/(Veq*2))*900;
+let y=400-(pH/14)*400;
+
+if(V==0) ctx.moveTo(x,y);
+else ctx.lineTo(x,y);
+}
+
+ctx.stroke();
+}
+
+updateTitration();
+
+</script>
+
+</body>
+</html>
