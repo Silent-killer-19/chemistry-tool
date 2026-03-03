@@ -1,27 +1,28 @@
+
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Pro Titration Lab</title>
+<title>Ultimate Research Lab Titration Simulator 2.0</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body{
 margin:0;
-font-family:Segoe UI, sans-serif;
+font-family:Segoe UI;
 background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 color:white;
 padding:20px;
 }
 
 .container{
-max-width:1000px;
+max-width:1100px;
 margin:auto;
-background:rgba(255,255,255,0.08);
-backdrop-filter:blur(15px);
+background:rgba(255,255,255,0.07);
+backdrop-filter:blur(20px);
 padding:25px;
 border-radius:25px;
-box-shadow:0 0 40px rgba(0,0,0,0.5);
+box-shadow:0 0 40px rgba(0,0,0,0.6);
 }
 
 h2{text-align:center;margin-bottom:20px;}
@@ -29,27 +30,24 @@ h2{text-align:center;margin-bottom:20px;}
 .grid{
 display:grid;
 grid-template-columns:1fr 1fr;
-gap:15px;
+gap:20px;
 }
 
 input,select{
 width:100%;
-padding:10px;
+padding:8px;
 border-radius:10px;
 border:none;
-font-size:14px;
+margin:6px 0;
 }
 
-.slider{
-width:100%;
-}
+.slider{width:100%;}
 
-.resultBox{
-margin-top:20px;
+.result{
+margin-top:15px;
 padding:15px;
-background:rgba(0,0,0,0.4);
 border-radius:15px;
-transition:0.4s;
+background:rgba(0,0,0,0.4);
 }
 
 canvas{
@@ -58,39 +56,7 @@ border-radius:15px;
 margin-top:20px;
 }
 
-.burette{
-width:60px;
-height:300px;
-border:3px solid white;
-margin:auto;
-position:relative;
-border-radius:10px;
-}
-
-.liquid{
-position:absolute;
-bottom:0;
-width:100%;
-background:#00c6ff;
-transition:0.4s;
-}
-
-.drop{
-width:10px;
-height:10px;
-background:#00c6ff;
-border-radius:50%;
-position:absolute;
-left:25px;
-animation:drop 1s infinite;
-}
-
-@keyframes drop{
-0%{top:290px;opacity:1;}
-100%{top:340px;opacity:0;}
-}
-
-@media(max-width:700px){
+@media(max-width:800px){
 .grid{grid-template-columns:1fr;}
 }
 </style>
@@ -99,189 +65,192 @@ animation:drop 1s infinite;
 
 <div class="container">
 
-<h2>🧪 Ultimate Pro Titration Lab</h2>
+<h2>🧪 Ultimate Research Lab Titration Simulator 2.0</h2>
 
 <div class="grid">
+
 <div>
-<label>Titration Type</label>
-<select id="type">
-<option value="sa_sb">Strong Acid vs Strong Base</option>
-<option value="wa_sb">Weak Acid vs Strong Base</option>
-<option value="wb_sa">Weak Base vs Strong Acid</option>
+
+<label>Mode</label>
+<select id="mode">
+<option value="ph">pH Titration</option>
+<option value="cond">Conductometric</option>
 </select>
 
-<label>Analyte Conc (M)</label>
+<label>Acid Type</label>
+<select id="acidType">
+<option value="mono">Monoprotic</option>
+<option value="di">Diprotic (H₂A)</option>
+</select>
+
+<label>Acid Concentration (M)</label>
 <input type="number" id="Ca" value="0.1">
 
-<label>Analyte Volume (mL)</label>
+<label>Acid Volume (mL)</label>
 <input type="number" id="Va" value="50">
 
-<label>Titrant Conc (M)</label>
+<label>Base Concentration (M)</label>
 <input type="number" id="Cb" value="0.1">
 
-<label>Ka or Kb</label>
-<input type="number" id="K" placeholder="Only for weak">
+<label>Ka₁</label>
+<input type="number" id="Ka1" value="1e-5">
 
-<label>Add Volume (mL)</label>
-<input type="range" min="0" max="100" step="0.5" value="0"
-id="volumeSlider" class="slider" oninput="updateTitration()">
-<span id="volDisplay">0 mL</span>
+<label>Ka₂ (if diprotic)</label>
+<input type="number" id="Ka2" value="1e-9">
+
+<label>Temperature (°C)</label>
+<input type="number" id="temp" value="25">
+
+<label>Added Base Volume (mL)</label>
+<input type="range" min="0" max="150" step="0.5"
+id="Vb" class="slider" oninput="update()">
+<span id="displayV">0 mL</span>
 
 </div>
 
-<div style="text-align:center">
-<div class="burette">
-<div class="liquid" id="liquid" style="height:100%"></div>
-<div class="drop"></div>
-</div>
-</div>
+<div>
+<div class="result" id="result"></div>
 </div>
 
-<div class="resultBox" id="result"></div>
+</div>
 
-<canvas id="graph" width="900" height="400"></canvas>
+<canvas id="graph" width="1000" height="450"></canvas>
 
 </div>
 
 <script>
 
-function updateTitration(){
+function KwTemp(T){
+return 1e-14*Math.exp(0.05*(T-25));
+}
 
-let type=document.getElementById("type").value;
+function safeLog(x){
+if(x<=0) return 0;
+return Math.log10(x);
+}
+
+function update(){
+
+let mode=document.getElementById("mode").value;
+let acidType=document.getElementById("acidType").value;
 let Ca=parseFloat(document.getElementById("Ca").value);
 let Va=parseFloat(document.getElementById("Va").value)/1000;
 let Cb=parseFloat(document.getElementById("Cb").value);
-let K=parseFloat(document.getElementById("K").value);
-let Vb=parseFloat(document.getElementById("volumeSlider").value)/1000;
+let Ka1=parseFloat(document.getElementById("Ka1").value);
+let Ka2=parseFloat(document.getElementById("Ka2").value);
+let T=parseFloat(document.getElementById("temp").value);
+let Vb=parseFloat(document.getElementById("Vb").value)/1000;
 
-document.getElementById("volDisplay").innerText=(Vb*1000).toFixed(1)+" mL";
+document.getElementById("displayV").innerText=(Vb*1000).toFixed(1)+" mL";
 
+let Kw=KwTemp(T);
 let molesA=Ca*Va;
 let molesB=Cb*Vb;
 let totalVol=Va+Vb;
-let Veq=molesA/Cb;
 
-let pH, region;
+let pH=7;
+let conductivity=0;
+let Veq1=molesA/Cb;
+let Veq2=(acidType=="di")?2*molesA/Cb:Veq1;
 
-if(type=="sa_sb"){
-if(Vb<Veq){
-let H=(molesA-molesB)/totalVol;
-pH=-Math.log10(H);
-region="Before Equivalence (Acidic)";
-}
-else if(Vb==Veq){
-pH=7;
-region="Equivalence Point";
-}
-else{
-let OH=(molesB-molesA)/totalVol;
-pH=14+Math.log10(OH);
-region="After Equivalence (Basic)";
-}
-}
+if(acidType=="mono"){
 
-if(type=="wa_sb"){
-if(Vb<Veq){
+if(Vb<Veq1){
 let HA=molesA-molesB;
 let A=molesB;
-pH=-Math.log10(K)+Math.log10(A/HA);
-region="Buffer Region";
+pH=-safeLog(Ka1)+safeLog(A/HA);
 }
 else{
-let OH=(molesB-molesA)/totalVol;
-pH=14+Math.log10(OH);
-region="After Equivalence";
-}
+let excess=(molesB-molesA)/totalVol;
+pH=14+safeLog(excess);
 }
 
-if(type=="wb_sa"){
-if(Vb<Veq){
-let B=molesA-molesB;
-let BH=molesB;
-pH=14-(-Math.log10(K)+Math.log10(BH/B));
-region="Buffer Region";
+}
+
+if(acidType=="di"){
+
+if(Vb<Veq1){
+let HA=molesA-molesB;
+let A=molesB;
+pH=-safeLog(Ka1)+safeLog(A/HA);
+}
+else if(Vb<Veq2){
+let HA2=2*molesA-molesB;
+let A2=molesB-molesA;
+pH=-safeLog(Ka2)+safeLog(A2/HA2);
 }
 else{
-let H=(molesB-molesA)/totalVol;
-pH=-Math.log10(H);
-region="After Equivalence";
+let excess=(molesB-2*molesA)/totalVol;
+pH=14+safeLog(excess);
 }
+
 }
 
 pH=Math.max(0,Math.min(14,pH));
 
+conductivity=Math.abs(molesB-molesA)/totalVol*100;
+
 document.getElementById("result").innerHTML=
 "<b>pH:</b> "+pH.toFixed(3)+
-"<br><b>Region:</b> "+region+
-"<br><b>Equivalence Volume:</b> "+(Veq*1000).toFixed(2)+" mL"+
-"<br><b>Half Equivalence:</b> "+(Veq*500).toFixed(2)+" mL"+
-"<br><b>Indicator Suggestion:</b> "+
-(type=="sa_sb"?"Any":
-(type=="wa_sb"?"Phenolphthalein":"Methyl Orange"));
+"<br><b>Equivalence 1:</b> "+(Veq1*1000).toFixed(2)+" mL"+
+(acidType=="di"?"<br><b>Equivalence 2:</b> "+(Veq2*1000).toFixed(2)+" mL":"")+
+"<br><b>Conductivity (relative):</b> "+conductivity.toFixed(3);
 
-document.getElementById("result").style.transform="scale(1.05)";
-setTimeout(()=>{document.getElementById("result").style.transform="scale(1)";},200);
-
-let liquidHeight=100-(Vb/(Veq*2))*100;
-document.getElementById("liquid").style.height=liquidHeight+"%";
-
-drawGraph(type,Ca,Va,Cb,K);
+drawGraph(mode,acidType,Ca,Va,Cb,Ka1,Ka2,T);
 }
 
-function drawGraph(type,Ca,Va,Cb,K){
+function drawGraph(mode,acidType,Ca,Va,Cb,Ka1,Ka2,T){
 
 let canvas=document.getElementById("graph");
 let ctx=canvas.getContext("2d");
-ctx.clearRect(0,0,900,400);
-
-let molesA=Ca*Va;
-let Veq=molesA/Cb;
+ctx.clearRect(0,0,1000,450);
 
 ctx.beginPath();
 ctx.strokeStyle="blue";
 ctx.lineWidth=2;
 
-for(let V=0;V<=Veq*2;V+=Veq/60){
+let molesA=Ca*Va;
+let Veq1=molesA/Cb;
+let Veq2=(acidType=="di")?2*molesA/Cb:Veq1;
+
+for(let V=0;V<=Veq2*1.5;V+=Veq2/80){
 
 let totalVol=Va+V;
-let pH;
+let pH=7;
 
-if(type=="sa_sb"){
-if(V<Veq){
-let H=(molesA-Cb*V)/totalVol;
-pH=-Math.log10(H);
-}else if(V==Veq){
-pH=7;
-}else{
-let OH=(Cb*V-molesA)/totalVol;
-pH=14+Math.log10(OH);
-}
-}
-
-if(type=="wa_sb"){
-if(V<Veq){
+if(acidType=="mono"){
+if(V<Veq1){
 let HA=molesA-Cb*V;
 let A=Cb*V;
-pH=-Math.log10(K)+Math.log10(A/HA);
-}else{
-let OH=(Cb*V-molesA)/totalVol;
-pH=14+Math.log10(OH);
+pH=-Math.log10(Ka1)+Math.log10(A/HA);
+}
+else{
+let excess=(Cb*V-molesA)/totalVol;
+pH=14+Math.log10(excess);
 }
 }
 
-if(type=="wb_sa"){
-if(V<Veq){
-let B=molesA-Cb*V;
-let BH=Cb*V;
-pH=14-(-Math.log10(K)+Math.log10(BH/B));
-}else{
-let H=(Cb*V-molesA)/totalVol;
-pH=-Math.log10(H);
+if(acidType=="di"){
+if(V<Veq1){
+let HA=molesA-Cb*V;
+let A=Cb*V;
+pH=-Math.log10(Ka1)+Math.log10(A/HA);
+}
+else if(V<Veq2){
+let HA2=2*molesA-Cb*V;
+let A2=Cb*V-molesA;
+pH=-Math.log10(Ka2)+Math.log10(A2/HA2);
+}
+else{
+let excess=(Cb*V-2*molesA)/totalVol;
+pH=14+Math.log10(excess);
 }
 }
 
-let x=(V/(Veq*2))*900;
-let y=400-(pH/14)*400;
+pH=Math.max(0,Math.min(14,pH));
+
+let x=(V/(Veq2*1.5))*1000;
+let y=450-(pH/14)*450;
 
 if(V==0) ctx.moveTo(x,y);
 else ctx.lineTo(x,y);
@@ -290,7 +259,7 @@ else ctx.lineTo(x,y);
 ctx.stroke();
 }
 
-updateTitration();
+update();
 
 </script>
 
