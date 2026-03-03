@@ -1,1 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Buffer Calculator | Henderson Equation</title>
+</head>
+<body>
+<h2>Buffer pH Calculator</h2>
 
+<input type="number" id="Ka" placeholder="Ka value">
+<input type="number" id="ratio" placeholder="Base/Acid Ratio">
+
+<button onclick="buffer()">Calculate</button>
+
+<div id="out"></div>
+
+<script>
+function buffer(){
+let Ka=parseFloat(document.getElementById("Ka").value);
+let ratio=parseFloat(document.getElementById("ratio").value);
+
+let pKa=-Math.log10(Ka);
+let pH=pKa+Math.log10(ratio);
+
+document.getElementById("out").innerHTML=
+"Using Henderson Equation:<br>pH = "+pH.toFixed(4);
+}
+</script>
+
+</body>
+</html>
