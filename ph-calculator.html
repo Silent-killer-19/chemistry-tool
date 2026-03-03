@@ -1,1 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Advanced pH Calculator | NEET JEE</title>
+<meta name="description" content="Strong, Weak & Temperature based pH calculator.">
+</head>
+<body>
+<h2>Advanced pH Calculator</h2>
 
+<input type="number" id="C" placeholder="Concentration (M)">
+<input type="number" id="Ka" placeholder="Ka (for weak acid)">
+<input type="number" id="temp" placeholder="Temperature °C">
+
+<button onclick="calc()">Calculate</button>
+
+<div id="result"></div>
+
+<script>
+function calc(){
+let C=parseFloat(document.getElementById("C").value);
+let Ka=parseFloat(document.getElementById("Ka").value);
+let temp=parseFloat(document.getElementById("temp").value);
+
+let Kw=1e-14;
+if(temp){
+Kw = 1e-14*Math.exp(0.05*(temp-25));
+}
+
+let H;
+if(Ka){
+H=Math.sqrt(Ka*C);
+}else{
+H=C;
+}
+
+let pH=-Math.log10(H);
+document.getElementById("result").innerHTML=
+"pH = "+pH.toFixed(4)+"<br>Kw used = "+Kw.toExponential(3);
+}
+</script>
+
+</body>
+</html>
